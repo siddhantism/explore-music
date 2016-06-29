@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/rabbit
+		http://www.springframework.org/schema/rabbit/spring-rabbit-1.1.xsd
+		http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context-3.0.xsd"
+	default-lazy-init="false">
+	
+	
+	<rabbit:connection-factory id="rabbitConnectionFactory"
+		addresses="${rabbitmq.hosts}" username="${rabbitmq.username}"
+		password="${rabbitmq.password}" />
+
+	<rabbit:admin id="containerAdmin" connection-factory="rabbitConnectionFactory"
+		auto-startup="true" />
+
+	<rabbit:direct-exchange id="restaurantExchange"
+		name="RESTAURANT_EXCHANGE" durable="true" auto-delete="false">
+		<rabbit:bindings>
+			<rabbit:binding queue="dosEventQueue" key="DOSEVENT" />
+		</rabbit:bindings>
+	</rabbit:direct-exchange>
+	
+	<rabbit:template id="restaurantExchangeTemplate"
+		connection-factory="rabbitConnectionFactory" exchange="RESTAURANT_EXCHANGE" />
+	
+	<rabbit:queue id="dosEventQueue" durable="true" name="dos.event.queue" auto-delete="false" />
+	
+	<rabbit:listener-container
+		connection-factory="rabbitConnectionFactory" acknowledge="auto"
+		concurrency="2" prefetch="20" transaction-size="10">
+		<rabbit:listener queues="dosEventQueue"
+			ref="dosEventWorker" method="onMessage" />
+	</rabbit:listener-container>
+	
+	<bean id="dosEventWorker" class="com.api.restaurant.severity.DosEventWorker" scope="singleton" />
+	
+</beans>
